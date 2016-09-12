@@ -11,7 +11,7 @@ export default function motdRoutes() {
         .then(item => res.json(item))
         .catch(next);
     })
-    .put('/', protect(ROLE_MANAGER), (req, res, next) => {
+    .put('/', protect('motd.set'), (req, res, next) => {
       req.uwave.setMotd(String(req.body.motd))
         .then(() => req.uwave.getMotd())
         .then(motd => toItemResponse({ motd }))

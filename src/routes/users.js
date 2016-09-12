@@ -5,7 +5,6 @@ import rateLimit from '../middleware/rateLimit';
 import * as controller from '../controllers/users';
 import beautifyDuplicateKeyError from '../utils/beautifyDuplicateKeyError';
 import { HTTPError, NotFoundError, PermissionError } from '../errors';
-import { ROLE_MANAGER, ROLE_MODERATOR } from '../roles';
 import getOffsetPagination from '../utils/getOffsetPagination';
 import toItemResponse from '../utils/toItemResponse';
 import toPaginatedResponse from '../utils/toPaginatedResponse';
@@ -13,7 +12,7 @@ import toPaginatedResponse from '../utils/toPaginatedResponse';
 export default function userRoutes() {
   const router = createRouter();
 
-  router.get('/', protect(ROLE_MANAGER), (req, res, next) => {
+  router.get('/', protect('users.list'), (req, res, next) => {
     const pagination = getOffsetPagination(req.query, {
       defaultSize: 50,
     });
@@ -31,7 +30,7 @@ export default function userRoutes() {
       .catch(next);
   });
 
-  router.post('/:id/mute', protect(ROLE_MODERATOR), (req, res, next) => {
+  router.post('/:id/mute', protect('chat.mute'), (req, res, next) => {
     if (typeof req.body.time !== 'number' || !isFinite(req.body.time)) {
       next(new HTTPError(400, 'Expected "time" to be a number.'));
       return;
@@ -52,7 +51,7 @@ export default function userRoutes() {
       .catch(next);
   });
 
-  router.delete('/:id/mute', protect(ROLE_MODERATOR), (req, res, next) => {
+  router.delete('/:id/mute', protect('chat.unmute'), (req, res, next) => {
     if (req.user.id === req.params.id) {
       next(new PermissionError('You can\'t unmute yourself.'));
       return;
@@ -68,7 +67,7 @@ export default function userRoutes() {
       .catch(next);
   });
 
-  router.put('/:id/role', protect(ROLE_MANAGER), (req, res, next) => {
+  router.put('/:id/role', protect(), (req, res, next) => {
     if (typeof req.body.role !== 'number' || !isFinite(req.body.role)) {
       next(new HTTPError(400, 'Expected "role" to be a number.'));
       return;
@@ -89,6 +88,7 @@ export default function userRoutes() {
   });
 
   router.put('/:id/username',
+    protect(),
     rateLimit('change-username', {
       max: 5,
       duration: 60 * 60 * 1000,
@@ -112,7 +112,7 @@ export default function userRoutes() {
     },
   );
 
-  router.put('/:id/avatar', (req, res, next) => {
+  router.put('/:id/avatar', protect(), (req, res, next) => {
     if (!req.body.avatar) {
       res.status(422).json('avatar is not set');
       return;
@@ -123,7 +123,8 @@ export default function userRoutes() {
       return;
     }
 
-    if (!req.user.id !== req.params.id && req.user.role < ROLE_MANAGER) {
+    // TODO add a role that allows changing _other_ people's avatars
+    if (req.user.id === req.params.id) {
       res.status(403).json('you need to be a manager to do this');
       return;
     }
@@ -134,7 +135,7 @@ export default function userRoutes() {
       .catch(next);
   });
 
-  router.put('/:id/status', (req, res, next) => {
+  router.put('/:id/status', protect(), (req, res, next) => {
     if (typeof req.body.status === 'undefined') {
       res.status(422).json('status is not set');
       return;

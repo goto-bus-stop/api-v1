@@ -7,7 +7,6 @@ import * as controller from '../controllers/waitlist';
 import { PermissionError } from '../errors';
 import toItemResponse from '../utils/toItemResponse';
 import toListResponse from '../utils/toListResponse';
-import { ROLE_MANAGER, ROLE_MODERATOR } from '../roles';
 
 export default function waitlistRoutes() {
   const router = createRouter();
@@ -20,39 +19,42 @@ export default function waitlistRoutes() {
   });
 
   router.post('/',
-    protect(),
+    protect('waitlist.join'),
     requireActiveConnection(),
     checkFields({ userID: 'string' }),
     (req, res, next) => {
       let position = parseInt(req.body.position, 10);
       position = isFinite(position) ? position : -1;
 
-      if (position >= 0) {
-        next(new PermissionError('You need to be a moderator to do this.'));
-        return;
-      }
-
       const targetID = req.body.userID;
-      const isModerator = req.user.role >= ROLE_MODERATOR;
-
-      const promise = position < 0
-        ? controller.appendToWaitlist(req.uwave, targetID, isModerator)
-        : controller.insertWaitlist(req.uwave, req.user.id, targetID, position, isModerator);
-      promise
+      const promise = position !== -1
+        ? req.user.can('waitlist.add')
+        : Promise.resolve(true);
+      promise.then((canAdd) => {
+        if (!canAdd) {
+          throw new PermissionError(
+            'You must have the \'waitlist.add\' permission to do this.'
+          );
+        }
+      })
+        .then(() => (position === -1
+          ? controller.appendToWaitlist(req.uwave, req.user, targetID)
+          : controller.insertWaitlist(req.uwave, req.user, targetID, position)
+        ))
         .then(waitlist => toListResponse(waitlist, { url: req.fullUrl }))
         .then(list => res.status(200).json(list))
         .catch(next);
     },
   );
 
-  router.delete('/', protect(ROLE_MANAGER), (req, res, next) => {
+  router.delete('/', protect('waitlist.clear'), (req, res, next) => {
     controller.clearWaitlist(req.uwave, req.user.id)
       .then(waitlist => toListResponse(waitlist, { url: req.fullUrl }))
       .then(list => res.status(200).json(list))
       .catch(next);
   });
 
-  router.put('/move', protect(ROLE_MODERATOR), checkFields({
+  router.put('/move', protect('waitlist.move'), checkFields({
     userID: 'string',
     position: 'number',
   }), (req, res, next) => {
@@ -62,16 +64,12 @@ export default function waitlistRoutes() {
       .catch(next);
   });
 
-  router.delete('/:id', protect(), (req, res, next) => {
+  router.delete('/:id', protect('waitlist.leave'), (req, res, next) => {
     let promise;
     if (req.user.id !== req.params.id) {
-      if (req.user.role < ROLE_MODERATOR) {
-        next(new PermissionError('You need to be a moderator to do this'));
-        return;
-      }
-      promise = controller.removeFromWaitlist(req.uwave, req.params.id, req.user.id);
+      promise = controller.removeFromWaitlist(req.uwave, req.user, req.params.id);
     } else {
-      promise = controller.leaveWaitlist(req.uwave, req.user.id);
+      promise = controller.leaveWaitlist(req.uwave, req.user);
     }
 
     promise
@@ -80,7 +78,7 @@ export default function waitlistRoutes() {
       .catch(next);
   });
 
-  router.put('/lock', protect(ROLE_MODERATOR), checkFields({
+  router.put('/lock', protect('waitlist.lock'), checkFields({
     lock: 'boolean',
   }), (req, res, next) => {
     controller.lockWaitlist(req.uwave, req.user.id, req.body.lock)

@@ -34,14 +34,15 @@ function isWaitlistLocked(uw) {
   return uw.redis.get('waitlist:lock').then(Boolean);
 }
 
-export async function appendToWaitlist(uw, userID, forceJoin) {
+export async function appendToWaitlist(uw, moderator, userID) {
   const User = uw.model('User');
 
   const user = await User.findById(userID);
 
   if (!user) throw new PermissionError('User not found.');
 
-  if (!forceJoin && await isWaitlistLocked(uw)) {
+  const canForceJoin = await moderator.can('waitlist.forcejoin');
+  if (!canForceJoin && await isWaitlistLocked(uw)) {
     throw new PermissionError('The waitlist is locked. Only staff can join.');
   }
 
@@ -78,14 +79,15 @@ export async function appendToWaitlist(uw, userID, forceJoin) {
   return waitlist;
 }
 
-export async function insertWaitlist(uw, moderatorID, id, position, forceJoin) {
+export async function insertWaitlist(uw, moderator, userID, position) {
   const User = uw.model('User');
 
-  const user = await User.findById(id);
+  const user = await User.findById(userID);
 
   if (!user) throw new NotFoundError('User not found.');
 
-  if (!forceJoin && await isWaitlistLocked(uw)) {
+  const canForceJoin = await moderator.can('waitlist.forcejoin');
+  if (!canForceJoin && await isWaitlistLocked(uw)) {
     throw new PermissionError('The waitlist is locked. Only staff can join.');
   }
 
@@ -93,15 +95,15 @@ export async function insertWaitlist(uw, moderatorID, id, position, forceJoin) {
 
   const clampedPosition = clamp(position, 0, waitlist.length - 1);
 
-  if (isInWaitlist(waitlist, id)) {
+  if (isInWaitlist(waitlist, user.id)) {
     throw new PermissionError('You are already in the waitlist.');
   }
 
-  if (await isCurrentDJ(uw, id)) {
+  if (await isCurrentDJ(uw, user.id)) {
     throw new PermissionError('You are already currently playing.');
   }
 
-  if (!(await hasValidPlaylist(uw, id))) {
+  if (!(await hasValidPlaylist(uw, user.id))) {
     throw new HTTPError(400,
       'You don\'t have anything to play. Please add some songs to your ' +
       'playlist and try again.',
@@ -109,16 +111,16 @@ export async function insertWaitlist(uw, moderatorID, id, position, forceJoin) {
   }
 
   if (waitlist.length > clampedPosition) {
-    await uw.redis.linsert('waitlist', 'BEFORE', waitlist[clampedPosition], id);
+    await uw.redis.linsert('waitlist', 'BEFORE', waitlist[clampedPosition], user.id);
   } else {
-    await uw.redis.lpush('waitlist', id);
+    await uw.redis.lpush('waitlist', user.id);
   }
 
   waitlist = await getWaitlist(uw);
 
   uw.redis.publish('v1', createCommand('waitlistAdd', {
-    userID: id,
-    moderatorID,
+    userID: user.id,
+    moderatorID: moderator.id,
     position: clampedPosition,
     waitlist,
   }));
@@ -189,24 +191,32 @@ async function removeUser(uw, userID) {
 }
 
 export async function leaveWaitlist(uw, user) {
-  const userID = typeof user === 'object' ? `${user._id}` : user;
-
-  await removeUser(uw, userID);
+  await removeUser(uw, user.id);
 
   const waitlist = await getWaitlist(uw);
-  uw.publish('waitlist:leave', { userID, waitlist });
+  uw.publish('waitlist:leave', {
+    userID: user.id,
+    waitlist,
+  });
 
   return waitlist;
 }
 
-export async function removeFromWaitlist(uw, user, moderator) {
+export async function removeFromWaitlist(uw, moderator, user) {
   const userID = typeof user === 'object' ? `${user._id}` : user;
-  const moderatorID = typeof moderator === 'object' ? `${moderator._id}` : moderator;
+
+  if (!(await moderator.can('waitlist.remove'))) {
+    throw new PermissionError('You must have the \'waitlist.remove\' role to do this.');
+  }
 
   await removeUser(uw, userID);
 
   const waitlist = await getWaitlist(uw);
-  uw.publish('waitlist:remove', { userID, moderatorID, waitlist });
+  uw.publish('waitlist:remove', {
+    userID,
+    moderatorID: moderator.id,
+    waitlist,
+  });
 
   return waitlist;
 }

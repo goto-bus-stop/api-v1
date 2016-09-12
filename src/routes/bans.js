@@ -9,7 +9,7 @@ import toPaginatedResponse from '../utils/toPaginatedResponse';
 
 export default function banRoutes() {
   return router()
-    .get('/', protect(ROLE_MODERATOR), (req, res, next) => {
+    .get('/', protect('users.bans.list'), (req, res, next) => {
       const uw = req.uwave;
       const { filter } = req.query;
       const pagination = getOffsetPagination(req.query);
@@ -21,7 +21,7 @@ export default function banRoutes() {
         .catch(next);
     })
 
-    .post('/', protect(ROLE_MODERATOR), (req, res, next) => {
+    .post('/', protect('users.bans.add'), (req, res, next) => {
       const uw = req.uwave;
       const moderatorID = req.user.id;
       const {
@@ -36,7 +36,7 @@ export default function banRoutes() {
         .catch(next);
     })
 
-    .delete('/:userID', protect(ROLE_MANAGER), (req, res, next) => {
+    .delete('/:userID', protect('users.bans.remove'), (req, res, next) => {
       const uw = req.uwave;
       const moderatorID = req.user.id;
       const { userID } = req.params;
