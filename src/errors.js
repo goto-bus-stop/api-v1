@@ -56,3 +56,10 @@ export class RateLimitError extends HTTPError {
     super(429, message);
   }
 }
+
+export class CombinedError extends APIError {
+  constructor(errors) {
+    super('Multiple errors');
+    this.errors = errors;
+  }
+}
