@@ -1,6 +1,7 @@
 import router from 'router';
 
 import route from '../route';
+import * as validations from '../validations';
 import protect from '../middleware/protect';
 import checkFields from '../middleware/checkFields';
 import * as controller from '../controllers/booth';
@@ -17,27 +18,26 @@ export default function boothRoutes() {
     .post(
       '/skip',
       protect(),
+      checkFields(validations.skipBooth),
       route(controller.skipBooth)
     )
     // POST /v1/booth/replace - Replace the current DJ with a different one.
     .post('/replace',
       protect(ROLE_MODERATOR),
-      checkFields({ userID: 'string' }),
+      checkFields(validations.replaceBooth),
       route(controller.replaceBooth)
     )
     // POST /v1/booth/favorite - Add the currently playing track to the user's favorites.
     .post(
       '/favorite',
       protect(),
-      checkFields({
-        playlistID: 'string',
-        historyID: 'string',
-      }),
+      checkFields(validations.favorite),
       route(controller.favorite)
     )
     // GET /v1/booth/history - Get the play history.
     .get(
       '/history',
+      checkFields(validations.getRoomHistory),
       route(controller.getHistory)
     );
 }

@@ -43,6 +43,7 @@
     "get-artist-title": "^0.0.2",
     "ioredis": "^1.9.0",
     "is-empty-object": "^1.1.1",
+    "joi": "^9.1.0",
     "jsonwebtoken": "^5.0.5",
     "lodash": "^4.16.1",
     "mongoose": "^4.1.6",
