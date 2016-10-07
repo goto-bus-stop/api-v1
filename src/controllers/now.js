@@ -1,8 +1,14 @@
 import Promise from 'bluebird';
 import { getBooth } from './booth';
-import { getServerTime } from './server';
+import {
+  getServerTime,
+  getRoles,
+} from './server';
 
-import { serializePlaylist } from '../utils/serialize';
+import {
+  serializePlaylist,
+  serializeUser,
+} from '../utils/serialize';
 
 // eslint-disable-next-line import/prefer-default-export
 export async function getState(v1, uw, user) {
@@ -12,12 +18,14 @@ export async function getState(v1, uw, user) {
   const motd = uw.getMotd();
   const booth = getBooth(uw);
   const users = uw.redis.lrange('users', 0, -1)
-    .then(userIDs => User.find({ _id: { $in: userIDs } }));
+    .then(userIDs => User.find({ _id: { $in: userIDs } }))
+    .map(serializeUser);
   const waitlist = uw.redis.lrange('waitlist', 0, -1);
   const waitlistLocked = uw.redis.get('waitlist:lock').then(Boolean);
   const activePlaylist = user ? user.getActivePlaylistID() : null;
   const playlists = user ? user.getPlaylists() : null;
   const time = getServerTime();
+  const roles = getRoles(uw);
 
   const state = await Promise.props({
     motd,
@@ -30,6 +38,7 @@ export async function getState(v1, uw, user) {
     activePlaylist,
     playlists,
     time,
+    roles,
   });
 
   if (state.playlists) {

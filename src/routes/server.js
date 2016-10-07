@@ -9,5 +9,10 @@ export default function serverRoutes() {
       res.json(toItemResponse({
         time: controller.getServerTime(),
       }));
+    })
+    .get('/roles', (req, res) => {
+      controller.getRoles(req.uwave)
+        .then(toItemResponse)
+        .then(item => res.json(item));
     });
 }

@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/prefer-default-export
 export const serializePlaylist = model => ({
   _id: model.id,
   name: model.name,
@@ -9,3 +8,7 @@ export const serializePlaylist = model => ({
   nsfw: model.nsfw,
   size: model.media.length,
 });
+
+export function serializeUser(model) {
+  return model.toJSON();
+}
