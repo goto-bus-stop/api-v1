@@ -16,9 +16,21 @@ function getHeaderToken(headers) {
   return null;
 }
 
+function getCookieToken(cookies) {
+  return cookies.uwsession;
+}
+
+function getToken(req) {
+  if (req.query && req.query.token) {
+    return req.query.token;
+  }
+
+  return getHeaderToken(req.headers) || getCookieToken(req.signedCookies);
+}
+
 export default function authenticatorMiddleware({ uw }, options) {
   async function authenticator(req) {
-    const token = (req.query && req.query.token) || getHeaderToken(req.headers);
+    const token = getToken(req);
     if (!token) {
       return;
     }

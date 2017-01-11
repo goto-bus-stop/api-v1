@@ -1,5 +1,6 @@
 import Router from 'router';
 import bodyParser from 'body-parser';
+import cookieParser from 'cookie-parser';
 
 // routes
 import authenticate from './routes/authenticate';
@@ -90,6 +91,7 @@ export default class ApiV1 extends Router {
 
     this
       .use(bodyParser.json())
+      .use(cookieParser({ secret: options.cookieSecret }))
       .use(addFullUrl())
       .use(this.attachUwaveToRequest())
       .use(authenticator(this, {
@@ -99,7 +101,10 @@ export default class ApiV1 extends Router {
       .use(rateLimit('api-v1-http', { max: 500, duration: 60 * 1000 }));
 
     this
-      .use('/auth', authenticate(this, { secret: options.secret }))
+      .use('/auth', authenticate(this, {
+        secret: options.secret,
+        cookieSecret: options.cookieSecret,
+      }))
       .use('/bans', bans(this))
       .use('/booth', booth(this))
       .use('/chat', chat(this))

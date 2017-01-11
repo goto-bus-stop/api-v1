@@ -28,6 +28,7 @@
     "bluebird": "^3.4.6",
     "body-parser": "^1.15.0",
     "clamp": "^1.0.1",
+    "cookie-parser": "^1.4.3",
     "debounce": "^1.0.0",
     "debug": "^2.2.0",
     "escape-string-regexp": "^1.0.5",
