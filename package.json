@@ -17,7 +17,7 @@
     "npm": ">= 3"
   },
   "scripts": {
-    "test": "eslint .",
+    "lint": "eslint .",
     "build": "gulp build",
     "watch": "gulp watch",
     "prepublish": "npm run build"
@@ -66,7 +66,7 @@
     "through2": "^2.0.1"
   },
   "scripts": {
-    "test": "eslint src gulpfile.js",
+    "lint": "eslint src gulpfile.js",
     "build": "gulp build",
     "watch": "gulp watch",
     "prepublish": "npm run build"
