@@ -33,8 +33,7 @@ export default function waitlistRoutes() {
       promise.then((canAdd) => {
         if (!canAdd) {
           throw new PermissionError(
-            'You must have the \'waitlist.add\' permission to do this.'
-          );
+            'You must have the \'waitlist.add\' permission to do this.');
         }
       })
         .then(() => (position === -1

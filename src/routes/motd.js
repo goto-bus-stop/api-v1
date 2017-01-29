@@ -1,7 +1,6 @@
 import router from 'router';
 import protect from '../middleware/protect';
 import toItemResponse from '../utils/toItemResponse';
-import { ROLE_MANAGER } from '../roles';
 
 export default function motdRoutes() {
   return router()
