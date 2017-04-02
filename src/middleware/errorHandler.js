@@ -17,8 +17,9 @@ function array(obj) {
 export default function errorHandler() {
   return (errors, req, res, next) => {
     if (errors) {
+      debug('caught errors:');
       const responseErrors = array(errors).reduce((acc, err) => {
-        debug(err.message);
+        console.error(err.stack);
         if (err instanceof APIError) {
           return [...acc, {
             status: err.status || 500,
