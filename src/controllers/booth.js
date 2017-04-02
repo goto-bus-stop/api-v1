@@ -105,8 +105,8 @@ export async function vote(uw, userID, direction) {
 
 export async function favorite(uw, id, playlistID, historyID) {
   const Playlist = uw.model('Playlist');
-  const PlaylistItem = uw.model('PlaylistItem');
   const History = uw.model('History');
+  const mongoose = Playlist.base;
 
   const historyEntry = await History.findById(historyID)
     .populate('media.media');
@@ -127,11 +127,10 @@ export async function favorite(uw, id, playlistID, historyID) {
 
   // `.media` has the same shape as `.item`, but is guaranteed to exist and have
   // the same properties as when the playlist item was actually played.
-  const playlistItem = new PlaylistItem(historyEntry.media.toJSON());
+  const playlistItem = historyEntry.media.toJSON();
+  playlistItem._id = new mongoose.Types.ObjectId();
 
-  await playlistItem.save();
-
-  playlist.media.push(playlistItem.id);
+  playlist.items.push(historyEntry.media.toJSON());
 
   uw.redis.lrem('booth:favorites', 0, id);
   uw.redis.lpush('booth:favorites', id);
@@ -143,7 +142,7 @@ export async function favorite(uw, id, playlistID, historyID) {
   await playlist.save();
 
   return {
-    playlistSize: playlist.media.length,
+    playlistSize: playlist.size,
     added: [playlistItem],
   };
 }
