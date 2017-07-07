@@ -1,8 +1,11 @@
 import * as bcrypt from 'bcryptjs';
+import * as cookie from 'cookie';
 import Promise from 'bluebird';
+import ms from 'ms';
 import { sign as jwtSignCallback } from 'jsonwebtoken';
 import randomString from 'random-string';
 
+import toItemResponse from '../utils/toItemResponse';
 import {
   NotFoundError,
   PasswordError,
@@ -13,14 +16,46 @@ import { isBanned as isUserBanned } from './bans';
 
 const jwtSign = Promise.promisify(jwtSignCallback);
 
+function seconds(str) {
+  return Math.floor(ms(str) / 1000);
+}
+
 export function getCurrentUser(uw, id) {
   const User = uw.model('User');
 
   return User.findById(id);
 }
 
-export async function login(uw, email, password, options) {
-  const Authentication = uw.model('Authentication');
+export async function refreshSession(res, v1, user, options) {
+  const token = await jwtSign(
+    { id: user.id },
+    options.secret,
+    { expiresIn: '31d' },
+  );
+
+  const socketToken = await v1.socket.createAuthToken(user);
+
+  if (options.session === 'cookie') {
+    const serialized = cookie.serialize('uwsession', token, {
+      httpOnly: true,
+      secure: !!options.cookieSecure,
+      path: options.cookiePath || '/',
+      maxAge: seconds('31 days'),
+    });
+    res.setHeader('Set-Cookie', serialized);
+    return toItemResponse(user, {
+      meta: { socketToken },
+    });
+  }
+
+  return toItemResponse(user, {
+    meta: { jwt: token, socketToken },
+  });
+}
+
+export async function login(req, res, options) {
+  const { email, password } = req.body;
+  const Authentication = req.uwave.model('Authentication');
 
   const auth = await Authentication.findOne({
     email: email.toLowerCase(),
@@ -34,20 +69,22 @@ export async function login(uw, email, password, options) {
     throw new PasswordError('That password is incorrect.');
   }
 
-  if (await isUserBanned(uw, auth.user)) {
+  if (await isUserBanned(req.uwave, auth.user)) {
     throw new PermissionError('You have been banned.');
   }
 
-  const token = await jwtSign(
-    { id: auth.user.id },
-    options.secret,
-    { expiresIn: '31d' },
-  );
+  return refreshSession(res, req.uwaveApiV1, auth.user, {
+    ...options,
+    session: req.query.session || 'token',
+  });
+}
 
-  return {
-    jwt: token,
-    user: auth.user,
-  };
+export async function getSocketToken(req, res) {
+  const v1 = req.uwaveApiV1;
+  const socketToken = await v1.socket.createAuthToken(req.user);
+  return toItemResponse({ socketToken }, {
+    url: req.fullUrl,
+  });
 }
 
 export async function reset(uw, email) {

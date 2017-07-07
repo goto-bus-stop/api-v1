@@ -91,7 +91,7 @@ export default class ApiV1 extends Router {
 
     this
       .use(bodyParser.json())
-      .use(cookieParser({ secret: options.cookieSecret }))
+      .use(cookieParser())
       .use(addFullUrl())
       .use(this.attachUwaveToRequest())
       .use(authenticator(this, {
@@ -103,7 +103,6 @@ export default class ApiV1 extends Router {
     this
       .use('/auth', authenticate(this, {
         secret: options.secret,
-        cookieSecret: options.cookieSecret,
       }))
       .use('/bans', bans(this))
       .use('/booth', booth(this))

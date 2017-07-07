@@ -1,12 +1,12 @@
+import { randomBytes } from 'crypto';
 import debounce from 'debounce';
 import find from 'array-find';
 import isEmpty from 'is-empty-object';
 import tryJsonParse from 'try-json-parse';
 import WebSocket from 'ws';
-
+import * as cookie from 'cookie';
 import { vote } from './controllers/booth';
 import { disconnectUser } from './controllers/users';
-
 import GuestConnection from './sockets/GuestConnection';
 import AuthedConnection from './sockets/AuthedConnection';
 import LostConnection from './sockets/LostConnection';
@@ -55,6 +55,19 @@ export default class SocketServer {
     this.initLostConnections();
   }
 
+  async createAuthToken(user) {
+    const token = await new Promise((resolve, reject) => {
+      randomBytes(64, (err, buf) => {
+        if (err) reject(err);
+        else resolve(buf.toString('hex'));
+      });
+    });
+
+    await this.uw.redis.set(`api-v1:socket:${token}`, user.id, 'EX', 10);
+
+    return token;
+  }
+
   /**
    * Create `LostConnection`s for every user that's known to be online, but that
    * is not currently connected to the socket server.
@@ -70,10 +83,20 @@ export default class SocketServer {
     });
   }
 
-  onSocketConnected(socket) {
+  onSocketConnected(socket, req) {
     debug('new connection');
 
-    this.add(this.createGuestConnection(socket));
+    const connection = this.createGuestConnection(socket);
+    if (req.headers.cookie) {
+      const cookies = cookie.parse(req.headers.cookie);
+      if (cookies.uwsession) {
+        connection.attemptAuth(cookies.uwsession).catch((err) => {
+          debug('got invalid session cookie');
+          debug(err);
+        });
+      }
+    }
+    this.add(connection);
   }
 
   /**
@@ -162,7 +185,9 @@ export default class SocketServer {
     debug('removing', String(connection));
 
     const i = this.connections.indexOf(connection);
-    this.connections.splice(i, 1);
+    if (i !== -1) {
+      this.connections.splice(i, 1);
+    }
 
     connection.removed();
     this.recountGuests();

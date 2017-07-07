@@ -25,7 +25,7 @@ function getToken(req) {
     return req.query.token;
   }
 
-  return getHeaderToken(req.headers) || getCookieToken(req.signedCookies);
+  return getHeaderToken(req.headers) || getCookieToken(req.cookies);
 }
 
 export default function authenticatorMiddleware({ uw }, options) {

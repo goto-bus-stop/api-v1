@@ -18,6 +18,7 @@ export async function getState(v1, uw, user) {
   const activePlaylist = user ? user.getActivePlaylistID() : null;
   const playlists = user ? user.getPlaylists() : null;
   const time = getServerTime();
+  const socketToken = user ? v1.sockets.createAuthToken(user) : null;
 
   const state = await Promise.props({
     motd,
@@ -30,6 +31,7 @@ export async function getState(v1, uw, user) {
     activePlaylist,
     playlists,
     time,
+    socketToken,
   });
 
   if (state.playlists) {

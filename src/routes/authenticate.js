@@ -4,6 +4,7 @@ import Promise from 'bluebird';
 import request from 'request';
 
 import checkFields from '../middleware/checkFields';
+import protect from '../middleware/protect';
 import * as controller from '../controllers/authenticate';
 import {
   HTTPError,
@@ -75,11 +76,14 @@ export default function authenticateRoutes(v1, options) {
     email: 'string',
     password: 'string',
   }), (req, res, next) => {
-    controller.login(req.uwave, req.body.email, req.body.password, options)
-      .then(({ jwt, user }) => toItemResponse(user, {
-        meta: { jwt },
-      }))
-      .then(item => res.status(200).json(item))
+    controller.login(req, res, options)
+      .then(data => res.json(data))
+      .catch(next);
+  });
+
+  router.get('/socket', protect(), (req, res, next) => {
+    controller.getSocketToken(req, res)
+      .then(data => res.json(data))
       .catch(next);
   });
 

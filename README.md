@@ -37,6 +37,8 @@ parameter is a `u-wave-core` instance. Available options are:
    pass an object with ReCaptcha options. The only available option is `secret`,
    which is the ReCaptcha secret obtained from the "Server-side integration"
    panel on your [ReCaptcha site admin page][recaptcha].
+ - `cookieSecure` - If true, session cookies will only be sent over HTTPS. Default
+   false.
 
 ```js
 import express from 'express';
@@ -55,6 +57,7 @@ const api = createWebApi(uw, {
   secret: secret, // Encryption secret
   server: server, // HTTP server
   recaptcha: { secret: 'AABBCC...' }, // Optional
+  cookieSecure: true, // Set to true if the server is only accessable through HTTPS
 });
 
 app.use('/v1', api);

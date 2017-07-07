@@ -1,7 +1,6 @@
 import EventEmitter from 'events';
 import Ultron from 'ultron';
 import WebSocket from 'ws';
-import { verify } from 'jsonwebtoken';
 
 import { isBanned as isUserBanned } from '../controllers/bans';
 
@@ -20,8 +19,8 @@ export default class GuestConnection extends EventEmitter {
       this.emit('close');
     });
 
-    this.events.on('message', (jwt) => {
-      this.attemptAuth(jwt).catch((error) => {
+    this.events.on('message', (token) => {
+      this.attemptAuth(token).catch((error) => {
         this.send('error', error.message);
       });
     });
@@ -29,11 +28,11 @@ export default class GuestConnection extends EventEmitter {
 
   async attemptAuth(token) {
     const User = this.uw.model('User');
-    const session = await verify(token, this.options.secret);
+    const session = await this.getTokenSession(token);
     if (!session) {
       throw new Error('Invalid token');
     }
-    const userModel = await User.findById(session.id);
+    const userModel = await User.findById(session);
     if (!userModel) {
       throw new Error('Invalid session');
     }
@@ -46,6 +45,19 @@ export default class GuestConnection extends EventEmitter {
     }
 
     this.emit('authenticate', userModel);
+  }
+
+  async getTokenSession(token) {
+    if (token.length !== 128) {
+      throw new Error('Invalid token');
+    }
+    const [session] = await this.uw.redis
+      .multi()
+      .get(`api-v1:socket:${token}`)
+      .del(`api-v1:socket:${token}`)
+      .exec();
+
+    return session;
   }
 
   isReconnect(user) {
